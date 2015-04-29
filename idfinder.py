@@ -1,9 +1,9 @@
 #!/home/julius/Projects/facebook/idfinder/bin/python
-
 import requests
 import warnings
 import sys
 from prettyprint import pp
+
 
 class IDFinder:
 
@@ -35,28 +35,17 @@ class IDFinder:
     def printToken():
         print IDFinder.ACCESS_TOKEN
 
+    def setSourceFile(self, filename):
+        self.srcfilename = filename
+        fhandle = open(self.srcfilename, 'r+')
+        
+        line = fhandle.readline()
+        while line:
+            print line
+            line = fhandle.readline()
+        fhandle.close()
 
 
-
-for line in sys.stdin:
-    sys.stdout.write(line)
-
-
-
-
-
-
-
-
-
-
-
-    #payload = {'access_token':access_token, 'type':'user', 'q':'Julius Masigan'}
-
-    #request = requests.get(graph_api+'/search', params=payload)
-    #response = request.json()
-    ##p_id = response['data'][0]['id']
-    #pp(response)
-
-    ##request = requests.get(graph_api+'/'+p_id)
-    ##pp(request.json())
+a = IDFinder()
+filename = raw_input('File: \n')
+a.setSourceFile(filename)
