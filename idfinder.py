@@ -2,6 +2,7 @@
 import requests
 import warnings
 import sys
+import re
 from prettyprint import pp
 
 
@@ -33,14 +34,41 @@ class IDFinder:
     def setSourceFile(self, filename):
         self.srcfilename = filename
 		
-    def getProfileID(self, name):
-	payload = {'access_token':IDFinder.ACCESS_TOKEN, 'q':name, 'type':'user', 'limit':10}
-	request = requests.get(self.API+'/search', params=payload)
-	response = request.json()
-	if('error' in response):
-	    print response['error']['message']
-	    self.getToken()
-	    self.getProfileID(name)
+    def getProfileID(self, args):
+        # Hijack code. Only allow ON province.
+        # There aren't much else to do for now.
+        if(args['province'] != 'ON'):
+            return
+
+        args['province'] = 'ONTARIO'
+        keywords = [args['name'], args['city'], args['province']]
+        while(len(keywords) > 1):
+            profiles = self.doRequest(keywords)
+            if(len(profiles) == 0):
+                keywords.pop()
+            else:
+                profile = profiles[0]
+                profile['keyword'] = ' '.join(keywords)
+                return profile
+        else:
+            profiles = self.doRequest(keywords)
+            if(len(profiles)):
+                profile = profiles[0]
+                profile['keyword'] = ' '.join(keywords)
+                return profile
+        return
+
+    def doRequest(self, args):
+        keyword = ' '.join(args)
+        payload = {'access_token':IDFinder.ACCESS_TOKEN, 'q':keyword, 'type':'user', 'limit':10}
+        request = requests.get(self.API+'/search', params=payload)
+        response = request.json()
+        if('error' in response):
+            print response['error']['message']
+            self.getToken()
+            return self.doRequest(args)
+        else:
+            return response['data']
 
     @staticmethod
     def printToken():
@@ -52,12 +80,34 @@ a = IDFinder()
 a.setSourceFile(sys.argv[1])
 
 f = open(a.srcfilename, 'r+')
+f1 = open(re.sub(r'.csv$', '.tmp', a.srcfilename), 'w+')
 line = f.readline()
 while line:
-	lsplit = line.split(',', 2)
-	del lsplit[2]
-	name = ' '
-	name = name.join(lsplit)
-	a.getProfileID(name)
-	line = f.readline()
+    lsplit = line.split(',')
+    name = ' '.join([lsplit[0].strip(' '), lsplit[1].strip(' ')])
+    print name
+
+    params = {
+        'name':name.strip(' '), 
+        'street':lsplit[2].strip(' '), 
+        'city':lsplit[3].strip(' '), 
+        'province':lsplit[4].strip(' '),
+        'postal':lsplit[5].strip(' '), 
+        'age':lsplit[6].strip(' '), 
+        'gender':re.sub(r'^[\r\n]+|[\r\n]+$', '', lsplit[7]),
+    }
+
+    tmpline = [params['name'],params['street'],params['city'],params['province'],params['postal'],params['age'],params['gender']]
+
+    profile = a.getProfileID(params)
+    print str(profile)
+
+    if(profile):
+        tmpline.append(profile['id'])
+        tmpline.append(profile['keyword'])
+
+    f1.write(','.join(tmpline)+'\n')
+    line = f.readline()
+
 f.close()
+f1.close()
