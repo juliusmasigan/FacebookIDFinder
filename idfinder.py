@@ -3,6 +3,9 @@ import requests
 import warnings
 import sys
 import re
+import mechanize
+import StringIO
+from lxml import etree
 from prettyprint import pp
 
 
@@ -18,6 +21,7 @@ class IDFinder:
     #Constructor
     def __init__(self):
         warnings.filterwarnings('ignore')
+        self.login()
         #self.checkToken()
 
     def checkToken(self):
@@ -74,9 +78,50 @@ class IDFinder:
     def printToken():
         print IDFinder.ACCESS_TOKEN
 
+    def login(self):
+        self.browser = mechanize.Browser()
+        self.browser.set_handle_robots(False)
+        self.cookies = mechanize.CookieJar()
+
+        #self.browser.addheaders = [('User-agent', 'Mozilla/5.0 (X11; U; Linux i686; en-US)     AppleWebKit/534.7 (KHTML, like Gecko) Chrome/7.0.517.41 Safari/534.7')]
+        self.browser.addheaders = [('User-agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36')]
+        self.browser.open("http://m.facebook.com/")
+        self.browser.select_form(nr=0)
+
+        #self.browser.form['email'] = 'juliusmasigan@yahoo.com'
+        self.browser.form['email'] = 'hack_julius@yahoo.com'
+        self.browser.form['pass'] = 'jl.masigan'
+        self.browser.submit()
+
+    def getPicID(self, profile_id):
+        url = "https://m.facebook.com/app_scoped_user_id/"+profile_id
+        self.browser.addheaders = [('User-agent', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36')]
+        html = self.browser.open(url).read()
+        #pp(html)
+        parser = etree.HTMLParser()
+        tree = etree.parse(StringIO.StringIO(html), parser)
+        ids = tree.xpath("//div[@class='bl bm']/a/@href")
+        if(not ids):
+            ids = tree.xpath("//div[@class='bk bl']/a/@href")
+            if(not ids):
+                ids = tree.xpath("//div[@class='de']/a/@href")
+                if(not ids):
+                    ids = tree.xpath("//div[@class='bi cv']/a/@href")
+
+        isID = re.search(r'id=[0-9]*', ids[0], re.M|re.I)
+        if(isID):
+            pid = isID.group()
+            pp(pid)
+            return pid.split('=')[1]
+        else:
+            isID = re.search(r'profile_id=[0-9]*', ids[0], re.M|re.I)
+            pid = isID.group()
+            return pid.split('=')[1]
+        
 
 
 a = IDFinder()
+#a.getPicID('892795510777751')
 a.setSourceFile(sys.argv[1])
 
 f = open(a.srcfilename, 'r+')
@@ -103,7 +148,8 @@ while line:
     print str(profile)
 
     if(profile):
-        tmpline.append(profile['id'])
+        #tmpline.append(profile['id'])
+        tmpline.append(a.getPicID(profile['id']))
         tmpline.append(profile['keyword'])
 
     f1.write(','.join(tmpline)+'\n')
